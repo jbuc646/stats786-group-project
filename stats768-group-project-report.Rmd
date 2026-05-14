@@ -1,0 +1,550 @@
+---
+title: "STATS786 Group Project"
+author: "Group 4: Joshua Buchanan, Bea Cooke, Xinyi Kong, Marlon Chhour"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    number_sections: true
+    df_print: paged
+    code_folding: show
+---
+
+```{css, echo=FALSE}
+.contributor {
+  background-color: #2c3e50;
+  color: #ecf0f1;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-family: monospace;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.discussion {
+  background-color: #f8f9fa;
+  border-left: 4px solid #18bc9c;
+  padding: 12px 16px;
+  margin: 12px 0;
+  border-radius: 0 4px 4px 0;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo      = TRUE,
+  warning   = FALSE,
+  message   = FALSE,
+  fig.align = "center",
+  fig.width = 9,
+  fig.height = 5
+)
+```
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(fpp3)
+library(tsibble)
+library(feasts)
+library(fable)
+library(lubridate)
+```
+
+---
+
+# Data Cleaning and Exploratory Data Analysis
+
+## Data Description
+
+<div class="contributor">Contributors: Joshua Buchanan</div>
+
+::: {.discussion}
+The dataset contains 993 observations of monthly average temperature (°C) recorded at a single location, spanning from April 1943 to approximately mid-2025: a period of over 80 years. Each row represents one month, with the month name and year stored as separate columns. 
+:::
+
+```{r load-data}
+# Load data
+nelson <- read_csv('nelson.csv') 
+glimpse(nelson)
+```
+
+
+---
+
+## Train / Test Split
+
+<div class="contributor">Contributors: Joshua Buchanan</div>
+
+::: {.discussion}
+The training set excludes the most recent 12 months, which form the test set. All model fitting is performed on the training set only.
+:::
+
+```{r train-test-split}
+# Turn into tsibble first
+nelson <- nelson %>%
+  mutate(date = yearmonth(paste(Month, Year))) %>%
+  select(date, Temperature) %>%
+  as_tsibble(index = date)
+glimpse(nelson)
+
+# Create training and test sets: test is last 12 months.
+train <- nelson %>% filter(date < max(date) - 11)
+test <- nelson %>% filter(date >= max(date) - 11)
+
+# Checking number of rows
+nrow(train)
+nrow(test)
+
+# Checking the range too. 
+range(train$date)
+range(test$date)
+```
+
+---
+
+## Missing Values
+
+<div class="contributor">Contributors: Joshua Buchanan</div>
+
+::: {.discussion}
+We have four missing values. What should we do? *Maybe we should talk about this as a team. *
+:::
+
+```{r missing-values}
+has_gaps(nelson)  # check for gaps in time index
+scan_gaps(nelson) # shows where the gaps are
+```
+
+---
+
+## Visualisation and Feature Discussion
+
+<div class="contributor">Contributors: Joshua Buchanan</div>
+
+::: {.discussion}
+The time series displays strong, consistent seasonality with temperatures peaking in January (summer, ~17–18°C) and reaching a trough in July (winter, ~6–7°C). The seasonal subseries plot confirms this pattern is highly stable across all 80 years, with monthly means well-defined and little variation in the seasonal shape over time. The STL decomposition confirms the seasonality is additive, with the seasonal component oscillating consistently between approximately −6°C and +3°C throughout the entire series, showing no evidence of changing amplitude over time.
+
+The trend component from the STL decomposition reveals a positive trend, rising from approximately 11°C in the early 1940s to around 14°C by the mid-2020s. The trend is not monotonically increasing, with a notable dip around the 1970s–1980s before accelerating upward from the 1990s onward. The remainder component appears to behave like white noise, fluctuating randomly within approximately ±2°C with no obvious structure, large outliers, or evidence of heteroscedasticity, which is encouraging for modelling. 
+
+The ACF confirms strong positive autocorrelation at lags of 12, 24, and 36 months and strong negative autocorrelation at lags of 6, 18, and 30 months, consistent with the annual seasonal cycle, while the PACF shows significant spikes across the first 12 lags suggesting a complex short-term autocorrelation structure that will need to be accounted for in both the ARIMA and dynamic regression models.
+:::
+
+```{r time-plot}
+# Time plot
+train %>% autoplot(Temperature)
+```
+
+```{r subseries-plot}
+# We need to fill gaps in the data before doing gg_subseries 
+# this just fills with NA for now. We can change this later when we decide on what to do with the missing data.
+train %>% fill_gaps() %>% gg_subseries()
+```
+
+```{r}
+# Seasonality plot 
+train %>% fill_gaps %>% gg_season(Temperature)
+```
+
+```{r}
+# ACF plot
+nelson %>% fill_gaps() %>% ACF(Temperature, lag_max=48) %>% autoplot()
+```
+
+```{r}
+# PACF plot
+nelson %>% fill_gaps() %>% PACF(Temperature, lag.max=48) %>% autoplot()
+```
+
+```{r}
+# STL decomp
+# i've had to fill the NA's with an approximation to do with STL decomposition.
+train %>% fill_gaps() %>%
+  mutate(Temperature = as.numeric(Temperature)) %>%
+  mutate(Temperature = zoo::na.approx(Temperature, na.rm = FALSE)) %>%
+  model(STL(Temperature ~ trend(window=21))) %>%
+  components() %>%
+  autoplot()
+```
+
+---
+
+# ETS Models
+
+## Model Exploration and Shortlisting
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Methodology:** Describe how you created your shortlist of candidate ETS models — what components you considered (error, trend, seasonality) and how you evaluated them.
+:::
+
+```{r ets-manual}
+# --- Manually fitted ETS models ---
+
+```
+
+```{r ets-auto}
+# --- Automatically fitted ETS model (e.g. ETS(y)) ---
+
+```
+
+```{r ets-comparison}
+# --- Model comparison (e.g. AICc, BIC, accuracy) ---
+
+```
+
+---
+
+## Selected Model and Justification
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Selected model:** State your chosen model and justify your selection — e.g., AICc values, residual behaviour, interpretability.
+:::
+
+```{r ets-selected}
+# --- Fit your selected ETS model here ---
+
+```
+
+---
+
+## Model Equations
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Write down the fitted model equations here.**
+
+- Measurement equation: ...
+- State equations: ...
+- Parameter estimates: ...
+:::
+
+---
+
+# ARIMA Models
+
+## Transformations and Differencing
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Transformations:** Describe any Box-Cox or log transformations applied and why.
+
+**Differencing:** Describe the differencing required to achieve stationarity — use ACF/PACF and unit root tests to justify.
+:::
+
+```{r arima-transformations}
+# --- Transformation and differencing exploration ---
+
+```
+
+```{r arima-acf-pacf}
+# --- ACF and PACF plots ---
+
+```
+
+```{r arima-unit-root}
+# --- Unit root tests (e.g. KPSS, ADF) ---
+
+```
+
+---
+
+## Model Exploration and Shortlisting
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Methodology:** Describe how you built your shortlist of ARIMA models from the ACF/PACF and automatic selection.
+:::
+
+```{r arima-manual}
+# --- Manually specified ARIMA models ---
+
+```
+
+```{r arima-auto}
+# --- Automatically fitted ARIMA model (e.g. ARIMA(y)) ---
+
+```
+
+```{r arima-comparison}
+# --- Model comparison ---
+
+```
+
+---
+
+## Selected Model and Justification
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Selected model:** State your chosen ARIMA model and justify your selection.
+:::
+
+```{r arima-selected}
+# --- Fit your selected ARIMA model here ---
+
+```
+
+---
+
+## Model Equation (Backshift Notation)
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Write down the fitted model equation in backshift notation here.**
+
+$$
+(1 - \phi_1 B)(1 - B)^d y_t = (1 + \theta_1 B)\varepsilon_t
+$$
+
+*Replace with your actual equation and parameter estimates.*
+:::
+
+---
+
+# Dynamic Regression Models
+
+## Explanation of Dynamic Regression
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**In your own words:** Explain dynamic regression models as if teaching your classmates. Cover what they are, how they differ from standard regression and pure ARIMA, and when they are useful.
+:::
+
+---
+
+## Model Exploration
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Approach:** Describe the predictors you included — linear trend, Fourier terms for seasonality, and any intervention variables (e.g. outlier spikes). Explain your choices.
+:::
+
+```{r dynreg-fourier-exploration}
+# --- Explore different Fourier K values ---
+
+```
+
+```{r dynreg-models}
+# --- Fit dynamic regression models ---
+
+```
+
+```{r dynreg-comparison}
+# --- Model comparison ---
+
+```
+
+---
+
+## Selected Model and Justification
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Selected model:** State your chosen dynamic regression model and justify your selection.
+:::
+
+```{r dynreg-selected}
+# --- Fit your selected dynamic regression model ---
+
+```
+
+---
+
+## Trend Interpretation
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Interpretation of linear slope:** Write your interpretation of the linear trend coefficient here.
+
+**95% confidence interval:** Report the confidence interval and show your calculation.
+
+**Claim:** Based on the confidence interval, state whether average temperatures are rising, falling, or staying constant over the long term.
+
+**Expected change per century:** Calculate and report the expected change per century here.
+:::
+
+```{r dynreg-trend}
+# --- Extract and interpret linear trend estimate ---
+# --- Calculate 95% CI ---
+# --- Calculate expected change per century ---
+
+```
+
+---
+
+# Assumption Checking
+
+## Residual Diagnostics
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+```{r residuals-ets}
+# --- Residual diagnostic plots for ETS model ---
+
+```
+
+```{r residuals-arima}
+# --- Residual diagnostic plots for ARIMA model ---
+
+```
+
+```{r residuals-dynreg}
+# --- Residual diagnostic plots for Dynamic Regression model ---
+
+```
+
+---
+
+## Ljung-Box Tests
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+```{r ljung-box}
+# --- Ljung-Box tests for all three models ---
+
+```
+
+---
+
+## Discussion
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Do you trust these models for forecasting?** Discuss the residual plots and Ljung-Box results for each model. Comment on whether the assumptions of white noise residuals appear to be met and what implications this has for forecasting reliability.
+:::
+
+---
+
+# Forecasting
+
+## Forecasts (h = 12)
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+```{r forecasts-ets}
+# --- ETS forecast for h = 12 months ---
+
+```
+
+```{r forecasts-arima}
+# --- ARIMA forecast for h = 12 months ---
+
+```
+
+```{r forecasts-dynreg}
+# --- Dynamic regression forecast for h = 12 months ---
+
+```
+
+```{r forecasts-plot}
+# --- Combined forecast plot comparing all three models ---
+
+```
+
+---
+
+## Forecast Error vs Test Set
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+```{r forecast-accuracy}
+# --- Compute forecast error against test set for all three models ---
+# --- e.g. accuracy(forecasts, test) ---
+
+```
+
+---
+
+## Discussion
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**How well did your models perform?** Compare the forecast accuracy metrics (e.g. RMSE, MAE, MAPE) across your three models. Discuss which performed best and offer an explanation for why.
+:::
+
+---
+
+# LLMs in Time Series Analysis
+
+<!-- Delete whichever option your group did NOT choose -->
+
+## Option A — LLM Point Forecast
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Prompt used:**
+
+> *Paste your prompt(s) to the LLM here.*
+
+**LLM's thought process:**
+
+> *Summarise or paste the LLM's reasoning here.*
+
+**LLM point forecast for May 2026:** [value here]
+:::
+
+```{r llm-model-forecasts}
+# --- Extend your three models to h = 13 to get May 2026 forecasts ---
+
+```
+
+::: {.discussion}
+**Comparison and comments:** Compare the LLM's forecast to your three models' forecasts for May 2026. Comment on anything interesting.
+:::
+
+---
+
+## Option B — Chronos Model
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Setup notes:** Describe how you installed and ran the Chronos model in Python. Include any relevant details about feeding in the training set.
+:::
+
+```{r chronos-results}
+# --- Import Chronos forecasts (e.g. from a CSV saved from Python) ---
+# --- Compute forecast error on test set ---
+# --- Compare to ETS, ARIMA, Dynamic regression ---
+
+```
+
+::: {.discussion}
+**Did Chronos perform better or worse?** Compare Chronos forecast accuracy to your three models. Give a possible explanation for the result.
+:::
+
+---
+
+# Summary
+
+<div class="contributor">Contributors: [Name(s) here]</div>
+
+::: {.discussion}
+**Brief overall summary:** Summarise the key findings of your analysis — which model performed best, what the data showed, and any limitations or caveats worth noting.
+:::
+
+---
+
+*Report compiled using R `r R.version$major`.`r R.version$minor` and fpp3 `r packageVersion("fpp3")`.*
