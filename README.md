@@ -19,7 +19,8 @@ rinstall.packages(c("tidyverse", "fpp3", "tsibble", "feasts",
                    "fable", "lubridate"))
                    
 ## How to Run
-Clone the repository
-Place the data file in the data/ folder
-Open group_project_report.Rmd in RStudio
-Click Knit to render the full report
+
+- Clone the repository
+- Place the data file in the data/ folder
+- Open group_project_report.Rmd in RStudio
+- Click Knit to render the full report
