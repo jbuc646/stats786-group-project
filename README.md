@@ -5,11 +5,12 @@
 This repository contains the analysis and report for the STATS786 group project. We analyse a monthly average temperature time series recorded in Nelson, New Zealand, spanning April 1943 to mid-2025. The goal is to model and forecast average monthly temperatures using ETS, ARIMA, and dynamic regression models.
 
 ## Repository Structure
-├── nelson.csv                               # Raw data file
-├── stats768-group-project-report.Rmd        # Main RMarkdown report
-├── stats768-group-project-report.html       # Rendered report
-├── 786_Instructions_2026.html       # Assignment instructions from Matt
-└── README.md
+
+- nelson.csv                               # Raw data file
+- stats768-group-project-report.Rmd        # Main RMarkdown report
+- stats768-group-project-report.html       # Rendered report
+-  786_Instructions_2026.html       # Assignment instructions from Matt
+-  README.md
 
 
 ## Requirements
