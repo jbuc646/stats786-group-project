@@ -21,6 +21,8 @@ rinstall.packages(c("tidyverse", "fpp3", "tsibble", "feasts",
 ## How to Run
 
 - Clone the repository
-- Place the data file in the data/ folder
-- Open group_project_report.Rmd in RStudio
+- Open stats768-group-project-report.Rmd in RStudio
+- make any edits and updates there or in different files if needed
 - Click Knit to render the full report
+- make sure to push any changes back into the repo ASAP so we are all working off the most up-to-date version.
+- and please remember to pull before making edits each time to pick up anyone's recent changes
