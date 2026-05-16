@@ -320,11 +320,6 @@ autoplot(ETS_fc_final, train)
 <div class="contributor">Contributors: [Xinyi Kong]</div>
 
 ::: {.discussion}
-**Write down the fitted model equations here.**
-<div class="contributor">Contributors: [Xinyi Kong]</div>
-
-::: {.discussion}
-**Write down the fitted model equations here.**
 
 - **Measurement equation:**
 \[
