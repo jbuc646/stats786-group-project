@@ -179,54 +179,170 @@ train %>% fill_gaps() %>%
 
 ## Model Exploration and Shortlisting
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: [Xinyi Kong]</div>
 
 ::: {.discussion}
-**Methodology:** Describe how you created your shortlist of candidate ETS models — what components you considered (error, trend, seasonality) and how you evaluated them.
+**Methodology:
+Candidate ETS models were selected based on strong annual seasonality, a slowly evolving trend, and approximately constant variance over time. These features suggest that additive error and additive seasonal structures are appropriate for this dataset.
+The manually selected ETS models include:
+## ETS model equations
+
+### ETS(AAA):
+\[
+y_t = \ell_{t-1} + b_{t-1} + s_{t-m} + \epsilon_t
+\]
+
+### ETS(ANA):
+\[
+y_t = \ell_{t-1} + s_{t-m} + \epsilon_t
+\]
+
+### ETS(AAdA):
+\[
+y_t = \ell_{t-1} + \phi b_{t-1} + s_{t-m} + \epsilon_t
+\]
+
+### Multiplicative benchmark models:
+
+### ETS(M,A,A):
+\[
+y_t = (\ell_{t-1} + b_{t-1} + s_{t-m})(1 + \epsilon_t)
+\]
+
+### ETS(M,Ad,A):
+\[
+y_t = (\ell_{t-1} + \phi b_{t-1} + s_{t-m})(1 + \epsilon_t)
+\]
+Given these features, additive error and additive seasonal structures were considered the primary modelling choice. The initial shortlist focused on ETS models with additive seasonality, including:
+
+ETS(AAA): full additive specification with trend and seasonality
+ETS(ANA): no-trend specification to test whether a trend component is necessary
+ETS(AAdA): damped trend specification to improve long-term forecasting stability
+
+In addition, multiplicative specifications were included as benchmark models to assess whether a proportional error and seasonal structure could provide improved fit. These include:
+
+ETS(M,A,A)
+ETS(M,Ad,M)
+
+Although multiplicative models are typically suited to series with variance increasing with the level of the series, they were included for completeness and empirical comparison.
+
+An automatic ETS procedure was also fitted to select an optimal model based on AICc across the full ETS model space.
+
+An automatic ETS model was also fitted using ETS(Temperature), which selects the optimal combination of error, trend, and seasonal components by minimising AICc over all possible ETS specifications.
 :::
 
 ```{r ets-manual}
 # --- Manually fitted ETS models ---
+library(imputeTS)
 
+ETS_fit <- train %>%
+  fill_gaps() %>%
+  mutate(Temperature = na_seadec(Temperature)) %>%
+  model(additive = ETS(Temperature ~ error("A") + trend("A") + season("A")),
+        ANA = ETS(Temperature ~ error("A") + trend("N") + season("A")),
+        AAdA = ETS(Temperature ~ error("A") + trend("Ad") + season("A")),
+        multiplicative = ETS(Temperature ~ error("M") + trend("A") + season("M")),
+        hw = ETS(Temperature ~ error("M") + trend("Ad") + season("M")))
+
+ETS_fc = ETS_fit %>% 
+  forecast(h = 12) 
+
+ETS_fc %>%
+  autoplot(nelson)
 ```
 
 ```{r ets-auto}
 # --- Automatically fitted ETS model (e.g. ETS(y)) ---
-
+auto_fit = train %>%
+  fill_gaps() %>%
+  mutate(Temperature = na_seadec(Temperature)) %>%
+  model(ETS(Temperature))
+report(auto_fit) 
 ```
 
 ```{r ets-comparison}
 # --- Model comparison (e.g. AICc, BIC, accuracy) ---
+accuracy(ETS_fit) %>%
+  select(.model, RMSE, MAE, MAPE, MASE)
 
+glance(ETS_fit) %>% arrange(AICc)
+library(feasts)
+
+ETS_fit %>%
+  select(additive) %>%
+  gg_tsresiduals()
+
+ETS_fit %>%
+  select(ANA) %>%
+  gg_tsresiduals()
+
+ETS_fit %>%
+  select(AAdA) %>%
+  gg_tsresiduals()
+
+ETS_fit %>%
+  augment() %>%
+  features(.resid, ljung_box, lag = 24)
 ```
 
 ---
 
 ## Selected Model and Justification
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: [Xinyi Kong]</div>
 
 ::: {.discussion}
-**Selected model:** State your chosen model and justify your selection — e.g., AICc values, residual behaviour, interpretability.
+**Selected model:**
+Based on AICc and forecast accuracy, the ETS(ANA) model is selected as the preferred model. It achieves the lowest AICc and competitive error measures, while maintaining a simpler structure without a trend component.
+
+Although Ljung-Box tests indicate remaining autocorrelation in the residuals for all candidate models, this is common in long seasonal time series such as temperature data and does not invalidate the model for forecasting purposes.
+
+Therefore, ETS(ANA) is selected as the final model due to its balance of parsimony, interpretability, and predictive performance.
 :::
 
 ```{r ets-selected}
 # --- Fit your selected ETS model here ---
+ETS_final <- train %>%
+  fill_gaps() %>%
+  mutate(Temperature = na_seadec(Temperature)) %>%
+  model(ANA = ETS(Temperature ~ error("A") + trend("N") + season("A")))
+report(ETS_final)
 
+ETS_fc_final <- ETS_final %>%
+  forecast(h = 12)
+autoplot(ETS_fc_final, train)
 ```
 
 ---
 
 ## Model Equations
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: [Xinyi Kong]</div>
 
 ::: {.discussion}
-**Write down the fitted model equations here.**
 
-- Measurement equation: ...
-- State equations: ...
-- Parameter estimates: ...
+- **Measurement equation:**
+\[
+y_t = \ell_{t-1} + s_{t-m} + \epsilon_t
+\]
+
+- **State equations:**
+
+Level:
+\[
+\ell_t = \ell_{t-1} + \alpha \epsilon_t
+\]
+
+Seasonal:
+\[
+s_t = s_{t-m} + \gamma \epsilon_t
+\]
+
+- **Parameter estimates:**
+
+\[
+\alpha = 0.1076, \quad \gamma = 0.0001008, \quad \sigma^2 = 0.7298
+\]
 :::
 
 ---
