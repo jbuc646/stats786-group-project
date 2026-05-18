@@ -55,6 +55,7 @@ library(tsibble)
 library(feasts)
 library(fable)
 library(lubridate)
+library(here)
 ```
 
 ---
@@ -119,7 +120,30 @@ We have four missing values. What should we do? *Maybe we should talk about this
 
 ```{r missing-values}
 has_gaps(nelson)  # check for gaps in time index
-scan_gaps(nelson) # shows where the gaps are
+gaps <- scan_gaps(nelson) # shows where the gaps are
+gaps 
+
+## interpolation with ARIMA as per fpp3 sec:13.9
+nel_miss <- nelson %>% fill_gaps()
+nel_fill <- nel_miss %>% 
+            model(ARIMA(Temperature)) %>% 
+            interpolate(nel_miss)
+
+has_gaps(nel_fill) 
+nel_fill %>% filter(date %in% gaps$date)
+```
+
+```{r, fig.cap="Time plot of Nelson temperatures with interpolated temperature values for missing dates."}
+nel_fill %>% autoplot(Temperature)
+```
+
+```{r, fig.cap="Subseries time plot of Nelson temperatures until 1947, temperature value interpolated at March 1946, denoted as a red vertical line."}
+
+nel_fill %>% 
+  filter(date < yearmonth("1947 Jan")) %>% 
+  autoplot(Temperature) + 
+    geom_vline(xintercept = yearmonth("1946 Mar"), 
+               colour = "red")
 ```
 
 ---
