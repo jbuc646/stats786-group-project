@@ -56,6 +56,7 @@ library(feasts)
 library(fable)
 library(lubridate)
 library(here)
+library(urca)
 ```
 
 ---
@@ -123,23 +124,24 @@ has_gaps(nelson)  # check for gaps in time index
 gaps <- scan_gaps(nelson) # shows where the gaps are
 gaps 
 
-## interpolation with ARIMA as per fpp3 sec:13.9
-nel_miss <- nelson %>% fill_gaps()
-nel_fill <- nel_miss %>% 
-            model(ARIMA(Temperature)) %>% 
-            interpolate(nel_miss)
+# There are no gaps in the Test set so we only need to update the training set. 
 
-has_gaps(nel_fill) 
-nel_fill %>% filter(date %in% gaps$date)
+## interpolation with ARIMA as per fpp3 sec:13.9
+nel_miss <- train %>% fill_gaps()
+train_filled <- nel_miss %>% 
+                model(ARIMA(Temperature)) %>% 
+                interpolate(nel_miss)
+
+has_gaps(train_filled) 
+train_filled %>% filter(date %in% gaps$date)
 ```
 
 ```{r, fig.cap="Time plot of Nelson temperatures with interpolated temperature values for missing dates."}
-nel_fill %>% autoplot(Temperature)
+train_filled %>% autoplot(Temperature)
 ```
 
 ```{r, fig.cap="Subseries time plot of Nelson temperatures until 1947, temperature value interpolated at March 1946, denoted as a red vertical line."}
-
-nel_fill %>% 
+train_filled %>% 
   filter(date < yearmonth("1947 Jan")) %>% 
   autoplot(Temperature) + 
     geom_vline(xintercept = yearmonth("1946 Mar"), 
@@ -162,36 +164,31 @@ The ACF confirms strong positive autocorrelation at lags of 12, 24, and 36 month
 
 ```{r time-plot}
 # Time plot
-train %>% autoplot(Temperature)
+train_filled %>% autoplot(Temperature)
 ```
 
 ```{r subseries-plot}
-# We need to fill gaps in the data before doing gg_subseries 
-# this just fills with NA for now. We can change this later when we decide on what to do with the missing data.
-train %>% fill_gaps() %>% gg_subseries()
+train_filled %>% gg_subseries()
 ```
 
 ```{r}
 # Seasonality plot 
-train %>% fill_gaps %>% gg_season(Temperature)
+train_filled %>% gg_season(Temperature)
 ```
 
 ```{r}
 # ACF plot
-nelson %>% fill_gaps() %>% ACF(Temperature, lag_max=48) %>% autoplot()
+train_filled %>% ACF(Temperature, lag_max=48) %>% autoplot()
 ```
 
 ```{r}
 # PACF plot
-nelson %>% fill_gaps() %>% PACF(Temperature, lag.max=48) %>% autoplot()
+train_filled %>% PACF(Temperature, lag.max=48) %>% autoplot()
 ```
 
 ```{r}
 # STL decomp
-# i've had to fill the NA's with an approximation to do with STL decomposition.
-train %>% fill_gaps() %>%
-  mutate(Temperature = as.numeric(Temperature)) %>%
-  mutate(Temperature = zoo::na.approx(Temperature, na.rm = FALSE)) %>%
+train_filled %>%
   model(STL(Temperature ~ trend(window=21))) %>%
   components() %>%
   autoplot()
@@ -203,7 +200,7 @@ train %>% fill_gaps() %>%
 
 ## Model Exploration and Shortlisting
 
-<div class="contributor">Contributors: [Xinyi Kong]</div>
+<div class="contributor">Contributors: Xinyi Kong</div>
 
 ::: {.discussion}
 **Methodology:
@@ -256,10 +253,10 @@ An automatic ETS model was also fitted using ETS(Temperature), which selects the
 :::
 
 ```{r ets-manual}
-# --- Manually fitted ETS models ---
+# Manually fitted ETS models
 library(imputeTS)
 
-ETS_fit <- train %>%
+ETS_fit <- train_filled %>%
   fill_gaps() %>%
   mutate(Temperature = na_seadec(Temperature)) %>%
   model(additive = ETS(Temperature ~ error("A") + trend("A") + season("A")),
@@ -276,16 +273,18 @@ ETS_fc %>%
 ```
 
 ```{r ets-auto}
-# --- Automatically fitted ETS model (e.g. ETS(y)) ---
-auto_fit = train %>%
+# Automatically fitted ETS model
+auto_fit = train_filled %>%
   fill_gaps() %>%
   mutate(Temperature = na_seadec(Temperature)) %>%
   model(ETS(Temperature))
 report(auto_fit) 
+
+## AAdA becomes the best now here too with the NAs filled via ARIMA in the training data.
 ```
 
 ```{r ets-comparison}
-# --- Model comparison (e.g. AICc, BIC, accuracy) ---
+# Model comparison (e.g. AICc, BIC, accuracy)
 accuracy(ETS_fit) %>%
   select(.model, RMSE, MAE, MAPE, MASE)
 
@@ -313,10 +312,12 @@ ETS_fit %>%
 
 ## Selected Model and Justification
 
-<div class="contributor">Contributors: [Xinyi Kong]</div>
+<div class="contributor">Contributors: Xinyi Kong</div>
 
 ::: {.discussion}
 **Selected model:**
+[Note from Joshua - now the AAdA is outperforming the ANA model in terms of AIC and AICc since we have switched to using the training set with the filled values - what do you think of this?]
+
 Based on AICc and forecast accuracy, the ETS(ANA) model is selected as the preferred model. It achieves the lowest AICc and competitive error measures, while maintaining a simpler structure without a trend component.
 
 Although Ljung-Box tests indicate remaining autocorrelation in the residuals for all candidate models, this is common in long seasonal time series such as temperature data and does not invalidate the model for forecasting purposes.
@@ -325,7 +326,7 @@ Therefore, ETS(ANA) is selected as the final model due to its balance of parsimo
 :::
 
 ```{r ets-selected}
-# --- Fit your selected ETS model here ---
+# Selected ETS model
 ETS_final <- train %>%
   fill_gaps() %>%
   mutate(Temperature = na_seadec(Temperature)) %>%
@@ -341,7 +342,7 @@ autoplot(ETS_fc_final, train)
 
 ## Model Equations
 
-<div class="contributor">Contributors: [Xinyi Kong]</div>
+<div class="contributor">Contributors: Xinyi Kong</div>
 
 ::: {.discussion}
 
@@ -367,6 +368,8 @@ s_t = s_{t-m} + \gamma \epsilon_t
 \[
 \alpha = 0.1076, \quad \gamma = 0.0001008, \quad \sigma^2 = 0.7298
 \]
+
+[NOTE: we will have to change the above since top model has changed?]
 :::
 
 ---
@@ -460,74 +463,187 @@ $$
 
 ## Explanation of Dynamic Regression
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: Joshua Buchanan</div>
 
 ::: {.discussion}
-**In your own words:** Explain dynamic regression models as if teaching your classmates. Cover what they are, how they differ from standard regression and pure ARIMA, and when they are useful.
+At their core, **dynamic regression models** are what you get when standard regression and ARIMA
+are combined: you get external predictors *and* proper time series error structure in one model.
+
+The three approaches compared:
+
+- **Standard regression** lets you include useful external variables (holidays, economic data etc.)
+but assumes errors are white noise
+- **Pure ARIMA** handles autocorrelation well but you're stuck with no external predictors, just
+the series modelling itself
+- **Dynamic regression** covers both: $y_t = \beta_0 + \beta_1 x_{1,t} + \cdots + \eta_t$ where
+the residual $\eta_t$ follows an $\text{ARIMA}(p,d,q)$ process rather than being white noise
+
+One thing worth noting: there are actually **two error terms** in the model. $\eta_t$ is the
+regression error, and $\varepsilon_t$ is the white noise innovation buried inside the ARIMA: only
+$\varepsilon_t$ is assumed to be white noise, not $\eta_t$.
+
+The intention is to use dynamic regression when you have predictors that clearly explain some variation in your series,
+but your residuals are still autocorrelated after fitting.
 :::
 
 ---
 
 ## Model Exploration
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: Joshua Buchanan</div>
 
 ::: {.discussion}
 **Approach:** Describe the predictors you included — linear trend, Fourier terms for seasonality, and any intervention variables (e.g. outlier spikes). Explain your choices.
 :::
 
-```{r dynreg-fourier-exploration}
-# --- Explore different Fourier K values ---
+```{r dynreg-setup}
+# Dynamic regression models with Fourier terms for seasonality
+library(fpp3)
 
+# Add fourier terms + trend to train_filled
+# Try K = 1, 2, 3, 4, 5, 6 (max for period 12)
+dynreg_fit <- train_filled %>%
+  model(
+    K1 = ARIMA(Temperature ~ trend() + fourier(K = 1) + PDQ(0,0,0)),
+    K2 = ARIMA(Temperature ~ trend() + fourier(K = 2) + PDQ(0,0,0)),
+    K3 = ARIMA(Temperature ~ trend() + fourier(K = 3) + PDQ(0,0,0)),
+    K4 = ARIMA(Temperature ~ trend() + fourier(K = 4) + PDQ(0,0,0)),
+    K5 = ARIMA(Temperature ~ trend() + fourier(K = 5) + PDQ(0,0,0)),
+    K6 = ARIMA(Temperature ~ trend() + fourier(K = 6) + PDQ(0,0,0))
+  )
 ```
 
-```{r dynreg-models}
-# --- Fit dynamic regression models ---
-
-```
 
 ```{r dynreg-comparison}
-# --- Model comparison ---
-
+glance(dynreg_fit) %>% arrange(AICc) %>% select(.model, AIC, AICc, BIC)
+accuracy(dynreg_fit) %>% select(.model, RMSE, MAE, MASE)
 ```
+
+```{r dynreg-outlier-check}
+# Check training data for obvious outliers/spikes worth modelling
+train_filled %>% autoplot(Temperature)
+
+# Identify candidate spike dates if any stand out
+train_filled %>% 
+  filter(Temperature == max(Temperature) | Temperature == min(Temperature))
+
+# I do not think there are any crazy outliers here - let me know if you disagree. 
+```
+
+
+
+
 
 ---
 
 ## Selected Model and Justification
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: Joshua Buchanan</div>
 
 ::: {.discussion}
-**Selected model:** State your chosen dynamic regression model and justify your selection.
+Based on AICc, **K3** is selected as the best dynamic regression model, with the lowest AICc of
+2435.880 and AIC of 2435.559.
+
+The results show a clear pattern. K1 is by far the worst (AICc 2608.415), K2 improves, and K3 achieves the best fit. 
+Beyond K3, each additional pair of Fourier terms
+increases AICc, meaning the added flexibility is not worth the extra complexity.
+
+K3 includes six Fourier terms (3 sine/cosine pairs), which is sufficient to capture the dominant
+seasonal harmonics in monthly temperature data without overfitting. This aligns with the principle
+of parsimony: K4--K6 offer no improvement in AICc or BIC, suggesting the higher-frequency seasonal
+variation they model is largely noise.
+
+No intervention variables were included. Visual inspection of the training data and filtering for
+extreme values revealed no obvious spikes or structural breaks warranting dummy variables. The
+series appears to vary smoothly within a consistent seasonal range throughout the training period.
+
+**Summary:**
+
+- K3 achieves the lowest AICc (2435.880) and AIC (2435.559) of all candidates
+- BIC also favours K3 (2494.271), confirming the parsimony argument
+- K4--K6 show monotonically increasing AICc, ruling them out
+- K1--K2 underfit the seasonal structure given the sharp AICc drop to K3
+- No outlier dummies added: inspection found no extreme values justifying intervention terms
 :::
 
-```{r dynreg-selected}
-# --- Fit your selected dynamic regression model ---
+```{r dynreg-best-residuals}
+# Residual diagnostics on best model (update K after glance above)
+dynreg_fit %>%
+  select(K3) %>%
+  gg_tsresiduals()
 
+dynreg_fit %>%
+  augment() %>%
+  features(.resid, ljung_box, lag = 24)
+
+## looks good - we should explain further in terms of each plot cand ljung box for completeness. 
+```
+
+```{r dynreg-final}
+dynreg_final <- train_filled %>%
+  model(K3 = ARIMA(Temperature ~ trend() + fourier(K = 3) + PDQ(0,0,0)))
 ```
 
 ---
 
 ## Trend Interpretation
 
-<div class="contributor">Contributors: [Name(s) here]</div>
+<div class="contributor">Contributors: Joshua Buchanan</div>
 
 ::: {.discussion}
-**Interpretation of linear slope:** Write your interpretation of the linear trend coefficient here.
+The trend coefficient is **0.0022°C per month**.
 
-**95% confidence interval:** Report the confidence interval and show your calculation.
+**95% Confidence Interval:**
 
-**Claim:** Based on the confidence interval, state whether average temperatures are rising, falling, or staying constant over the long term.
+$$0.0022 \pm 1.96 \times 0.0002 = [0.0018,\ 0.0026]$$
 
-**Expected change per century:** Calculate and report the expected change per century here.
+This interval sits entirely above zero, meaning we can confidently reject the hypothesis that
+temperatures are staying constant.
+
+**Per-century change:**
+
+$$0.0022 \times 12 \times 100 = \textbf{0.264°C per century}$$
+
+With the 95% CI translating to **[0.216, 0.312]°C per century**.
+
+Average temperatures in Nelson are increasing over the long term, though the rate is very slow:
+roughly 0.26°C per century. 
 :::
 
 ```{r dynreg-trend}
-# --- Extract and interpret linear trend estimate ---
-# --- Calculate 95% CI ---
-# --- Calculate expected change per century ---
+report(dynreg_final)
+```
+
+
+
+### Adding some forecasting for the later section here for this model - just leaving in this section now rather than below as maybe our model will change and easier to edit here before moving later. 
+
+
+```{r dynreg-forecast}
+# Future data for h=12 forecast horizon
+future <- new_data(train_filled, 12)
+
+dynreg_fc <- dynreg_final %>%
+  forecast(new_data = future)
+
+# Plot forecast against full nelson series
+dynreg_fc %>% autoplot(nelson)
+```
+
+```{r dynreg-accuracy}
+# Compare against test set
+accuracy(dynreg_fc, nelson) %>%
+  select(.model, RMSE, MAE, MAPE, MASE)
 
 ```
+
+```{r dynreg-forecast-table}
+# Print point forecasts and 95% intervals
+dynreg_fc %>%
+  hilo(level = 95) %>%
+  select(date, .mean, `95%`)
+```
+
 
 ---
 
