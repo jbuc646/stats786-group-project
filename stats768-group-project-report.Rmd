@@ -57,6 +57,7 @@ library(fable)
 library(lubridate)
 library(here)
 library(urca)
+library(imputeTS)
 ```
 
 ---
@@ -116,7 +117,15 @@ range(test$date)
 <div class="contributor">Contributors: Joshua Buchanan</div>
 
 ::: {.discussion}
-We have four missing values. What should we do? *Maybe we should talk about this as a team. *
+The Nelson temperature series contains four missing values, all located within the training set
+(the test set is complete). Rather than dropping or mean-imputing these observations, we used
+ARIMA-based interpolation as outlined in FPP3 §13.9. This fits an ARIMA model to the observed
+training data and fills gaps with the conditional expectation given the surrounding values,
+preserving the local temporal structure better than simpler alternatives.
+
+`fill_gaps()` first makes the implicit missing timestamps explicit, then `interpolate()` replaces
+them with model-fitted values. The filled dates were verified against the original gap locations to
+confirm all four were successfully imputed before proceeding with modelling.
 :::
 
 ```{r missing-values}
@@ -253,9 +262,6 @@ An automatic ETS model was also fitted using ETS(Temperature), which selects the
 :::
 
 ```{r ets-manual}
-# Manually fitted ETS models
-library(imputeTS)
-
 ETS_fit <- train_filled %>%
   fill_gaps() %>%
   mutate(Temperature = na_seadec(Temperature)) %>%
@@ -289,7 +295,6 @@ accuracy(ETS_fit) %>%
   select(.model, RMSE, MAE, MAPE, MASE)
 
 glance(ETS_fit) %>% arrange(AICc)
-library(feasts)
 
 ETS_fit %>%
   select(additive) %>%
@@ -493,13 +498,24 @@ but your residuals are still autocorrelated after fitting.
 <div class="contributor">Contributors: Joshua Buchanan</div>
 
 ::: {.discussion}
-**Approach:** Describe the predictors you included — linear trend, Fourier terms for seasonality, and any intervention variables (e.g. outlier spikes). Explain your choices.
+**Approach:**
+
+Three predictor types were considered for the dynamic regression models:
+
+- **Linear trend** --- included via `trend()` to capture the long-run warming signal in the Nelson
+temperature series
+- **Fourier terms** --- used to model seasonality rather than seasonal ARIMA differencing, with $K$
+ranging from 1 to 6 (the maximum for monthly data with period 12). Each additional $K$ adds one
+sine and one cosine pair, allowing progressively more flexible seasonal shapes
+- **Intervention variables** --- visual inspection of the training data and filtering for extreme
+values found no obvious spikes or structural breaks, so no dummy variables were included
+
+`PDQ(0,0,0)` was specified to prevent the auto ARIMA from also fitting seasonal ARIMA components
+on top of the Fourier terms, which would double-handle the seasonality. The $p$, $d$, $q$ orders
+for the error ARIMA were left to automatic selection in all models.
 :::
 
 ```{r dynreg-setup}
-# Dynamic regression models with Fourier terms for seasonality
-library(fpp3)
-
 # Add fourier terms + trend to train_filled
 # Try K = 1, 2, 3, 4, 5, 6 (max for period 12)
 dynreg_fit <- train_filled %>%
