@@ -151,8 +151,7 @@ gaps <- scan_gaps(nelson) # shows where the gaps are
 gaps 
 
 # There are no gaps in the Test set so we only need to update the training set. 
-
-## interpolation with ARIMA as per fpp3 sec:13.9
+# interpolation with ARIMA as per fpp3 sec:13.9
 nel_miss <- train %>% fill_gaps()
 train_filled <- nel_miss %>% 
                 model(ARIMA(Temperature)) %>% 
@@ -254,11 +253,14 @@ Contributors: Xinyi Kong
 :::
 
 ::: discussion
-\*\*Methodology: Candidate ETS models were selected based on strong
+**Methodology:** 
+Candidate ETS models were selected based on strong
 annual seasonality, a slowly evolving trend, and approximately constant
 variance over time. These features suggest that additive error and
 additive seasonal structures are appropriate for this dataset. The
-manually selected ETS models include: \## ETS model equations
+manually selected ETS models include: 
+
+\## ETS model equations
 
 ### ETS(AAA):
 
@@ -290,7 +292,9 @@ $$
 
 $$
 y_t = (\ell_{t-1} + \phi b_{t-1} + s_{t-m})(1 + \epsilon_t)
-$$ Given these features, additive error and additive seasonal structures
+$$ 
+
+Given these features, additive error and additive seasonal structures
 were considered the primary modelling choice. The initial shortlist
 focused on ETS models with additive seasonality, including:
 
@@ -320,25 +324,26 @@ by minimising AICc over all possible ETS specifications.
 ```{r ets-manual}
 ETS_fit <- train_filled %>%
   fill_gaps() %>%
-  mutate(Temperature = na_seadec(Temperature)) %>%
+  mutate(Temperature = na_seadec(Temperature)) %>% #Bea note: i think this can be removed if using train_filled
   model(additive = ETS(Temperature ~ error("A") + trend("A") + season("A")),
         ANA = ETS(Temperature ~ error("A") + trend("N") + season("A")),
         AAdA = ETS(Temperature ~ error("A") + trend("Ad") + season("A")),
         multiplicative = ETS(Temperature ~ error("M") + trend("A") + season("M")),
         hw = ETS(Temperature ~ error("M") + trend("Ad") + season("M")))
 
-ETS_fc = ETS_fit %>% 
-  forecast(h = 12) 
-
-ETS_fc %>%
-  autoplot(nelson)
+# move this code to section 6 
+# ETS_fc = ETS_fit %>% 
+#   forecast(h = 12) 
+# 
+# ETS_fc %>%
+#   autoplot(nelson)
 ```
 
 ```{r ets-auto}
 # Automatically fitted ETS model
 auto_fit = train_filled %>%
   fill_gaps() %>%
-  mutate(Temperature = na_seadec(Temperature)) %>%
+  mutate(Temperature = na_seadec(Temperature)) %>% #Bea note: same again, I think this can be removed if using train_filled
   model(ETS(Temperature))
 report(auto_fit) 
 
@@ -348,7 +353,7 @@ report(auto_fit)
 ```{r ets-comparison}
 # Model comparison (e.g. AICc, BIC, accuracy)
 accuracy(ETS_fit) %>%
-  select(.model, RMSE, MAE, MAPE, MASE)
+  select(.model, RMSE, MAE, MAPE, MASE) #Bea Q: MSE AMSE and MAE reported in glance can we get rid of this or want to keep for others?
 
 glance(ETS_fit) %>% arrange(AICc)
 
@@ -362,11 +367,11 @@ ETS_fit %>%
 
 ETS_fit %>%
   select(AAdA) %>%
-  gg_tsresiduals()
+  gg_tsresiduals() 
 
 ETS_fit %>%
   augment() %>%
-  features(.resid, ljung_box, lag = 24)
+  features(.resid, ljung_box, lag = 24) #Bea Q: do we need this now - or just report both ljung and resid plots for selected model in part 5? If keep do we need to fix dof for each model?
 ```
 
 ------------------------------------------------------------------------
@@ -398,15 +403,16 @@ parsimony, interpretability, and predictive performance.
 
 ```{r ets-selected}
 # Selected ETS model
-ETS_final <- train %>%
+ETS_final <- train %>% # update to train_filled data set
   fill_gaps() %>%
   mutate(Temperature = na_seadec(Temperature)) %>%
-  model(ANA = ETS(Temperature ~ error("A") + trend("N") + season("A")))
+  model(ANA = ETS(Temperature ~ error("A") + trend("N") + season("A"))) #[update to AAdA]
 report(ETS_final)
 
-ETS_fc_final <- ETS_final %>%
-  forecast(h = 12)
-autoplot(ETS_fc_final, train)
+# move to section 6 - 
+# ETS_fc_final <- ETS_final %>%
+#   forecast(h = 12)
+# autoplot(ETS_fc_final, train)
 ```
 
 ------------------------------------------------------------------------
@@ -560,8 +566,9 @@ ARIMA_fits <- train_filled %>% model(arima400011 = ARIMA(Temperature ~ pdq(3, 0,
 # find best on AICc
 report(ARIMA_fits) %>% arrange(AICc) %>% select(.model:BIC)
 
-ARIMA_fits %>% select(arima100011) %>% report() #report best
+accuracy(ARIMA_fits) %>% arrange(RMSE)
 
+ARIMA_fits %>% select(arima100011) %>% report() #report best
 
 ARIMA_fits %>% select(auto) %>% report() #report auto
 ```
@@ -577,7 +584,7 @@ Contributors: Bea Cooke
 ::: discussion
 **Selected model:** 
 
-Based on AICc, $ARIMA(1,0,0)(0,1,1)_{12}$ is selected as at model to likely have the best predictive ability. AICc was reported as 2532, this model also had the lowest uncorrected AIC (2532) and BIC (2547) scores further supporting this choice. 
+Based on AICc, $ARIMA(1,0,0)(0,1,1)_{12}$ is selected as the model likely to have the best predictive ability. AICc was reported as 2532, this model also reported the lowest uncorrected AIC (2532) and BIC (2547) scores further supporting this choice. 
 :::
 
 ```{r arima-selected}
@@ -743,13 +750,13 @@ the training period.
 
 ```{r dynreg-best-residuals}
 # Residual diagnostics on best model (update K after glance above)
-dynreg_fit %>%
-  select(K3) %>%
-  gg_tsresiduals()
-
-dynreg_fit %>%
-  augment() %>%
-  features(.resid, ljung_box, lag = 24)
+# dynreg_fit %>%
+#   select(K3) %>%
+#   gg_tsresiduals()
+# 
+# dynreg_fit %>%
+#   augment() %>%
+#   features(.resid, ljung_box, lag = 24)
 
 ## looks good - we should explain further in terms of each plot cand ljung box for completeness. 
 # Bea Question: does the dof need to be specified for ljung_box?
@@ -795,28 +802,28 @@ report(dynreg_final)
 ### Adding some forecasting for the later section here for this model - just leaving in this section now rather than below as maybe our model will change and easier to edit here before moving later.
 
 ```{r dynreg-forecast}
-# Future data for h=12 forecast horizon
-future <- new_data(train_filled, 12)
-
-dynreg_fc <- dynreg_final %>%
-  forecast(new_data = future)
-
-# Plot forecast against full nelson series
-dynreg_fc %>% autoplot(nelson)
+# # Future data for h=12 forecast horizon
+# future <- new_data(train_filled, 12)
+# 
+# dynreg_fc <- dynreg_final %>%
+#   forecast(new_data = future)
+# 
+# # Plot forecast against full nelson series
+# dynreg_fc %>% autoplot(nelson)
 ```
 
 ```{r dynreg-accuracy}
-# Compare against test set
-accuracy(dynreg_fc, nelson) %>%
-  select(.model, RMSE, MAE, MAPE, MASE)
+# # Compare against test set
+# accuracy(dynreg_fc, nelson) %>%
+#   select(.model, RMSE, MAE, MAPE, MASE)
 
 ```
 
 ```{r dynreg-forecast-table}
-# Print point forecasts and 95% intervals
-dynreg_fc %>%
-  hilo(level = 95) %>%
-  select(date, .mean, `95%`)
+# # Print point forecasts and 95% intervals
+# dynreg_fc %>%
+#   hilo(level = 95) %>%
+#   select(date, .mean, `95%`)
 ```
 
 ------------------------------------------------------------------------
@@ -830,8 +837,7 @@ Contributors: [Name(s) here]
 :::
 
 ```{r residuals-ets}
-# --- Residual diagnostic plots for ETS model ---
-
+ETS_final %>% gg_tsresiduals()
 ```
 
 ```{r residuals-arima}
@@ -839,8 +845,7 @@ ARIMA_fit %>% gg_tsresiduals()
 ```
 
 ```{r residuals-dynreg}
-# --- Residual diagnostic plots for Dynamic Regression model ---
-
+dynreg_final %>%  gg_tsresiduals()
 ```
 
 ------------------------------------------------------------------------
@@ -853,7 +858,9 @@ Contributors: [Name(s) here]
 
 ```{r ljung-box}
 # --- Ljung-Box tests for all three models ---
+ETS_final  %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 999) # ETS - dof & update model
 ARIMA_fit %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 2) #ARIMA
+dynreg_final %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 11) #DyReg - dof 
 
 ```
 
@@ -884,17 +891,54 @@ Contributors: [Name(s) here]
 
 ```{r forecasts-ets}
 # --- ETS forecast for h = 12 months ---
+ETS_fc_final <- ETS_final %>%
+  forecast(h = 12)
 
+plt_ets_fc <- autoplot(ETS_fc_final, nelson)
+plt_ets_fc_test <- autoplot(ETS_fc_final, test)
+
+plt_ets_fc + plt_ets_fc_test + plot_layout(ncol = 1)
+
+# Print point forecasts and 95% intervals
+ETS_fc_final %>%
+  hilo(level = 95) %>%
+  select(date, .mean, `95%`)
 ```
 
 ```{r forecasts-arima}
 # --- ARIMA forecast for h = 12 months ---
+ARIMA_fc <- ARIMA_fit %>% forecast(h = 12)
 
+plt_arima_fc <- autoplot(ARIMA_fc, nelson)
+plt_arima_fc_test <-autoplot(ARIMA_fc, test)
+
+plt_arima_fc + plt_arima_fc_test + plot_layout(ncol = 1)
+
+# Print point forecasts and 95% intervals
+ARIMA_fc %>%
+  hilo(level = 95) %>%
+  select(date, .mean, `95%`)
 ```
 
 ```{r forecasts-dynreg}
 # --- Dynamic regression forecast for h = 12 months ---
+# Future data for h=12 forecast horizon
+future <- new_data(train_filled, 12)
 
+dynreg_fc <- dynreg_final %>%
+  forecast(new_data = future)
+
+# Plot forecast against full nelson series
+plt_dyreg_fc <- dynreg_fc %>% autoplot(nelson)
+plt_dyreg_fc_test <- dynreg_fc %>% autoplot(test)
+
+plt_dyreg_fc + plt_dyreg_fc_test + plot_layout(ncol = 1)
+
+
+# Print point forecasts and 95% intervals
+dynreg_fc %>%
+  hilo(level = 95) %>%
+  select(date, .mean, `95%`)
 ```
 
 ```{r forecasts-plot}
@@ -911,9 +955,11 @@ Contributors: [Name(s) here]
 :::
 
 ```{r forecast-accuracy}
-# --- Compute forecast error against test set for all three models ---
-# --- e.g. accuracy(forecasts, test) ---
+ETS <- accuracy(ETS_fc_final, nelson) 
+AR <- accuracy(ARIMA_fc, nelson)
+DR <- accuracy(dynreg_fc, nelson) 
 
+bind_rows(ETS, AR, DR) %>% select(.model, RMSE, MAE, MAPE, MASE)
 ```
 
 ------------------------------------------------------------------------
