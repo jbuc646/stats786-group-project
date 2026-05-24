@@ -582,9 +582,9 @@ train_filled %>% gg_tsdisplay(diff_temp, plot_type = "partial", lag = 24)
 ```{r arima-fits}
 #fit all models
 ARIMA_fits <- train_filled %>% 
-  model(arima400011 = ARIMA(Temperature ~ pdq(3, 0, 0) + PDQ(0, 1, 1)),
+  model(arima300011 = ARIMA(Temperature ~ pdq(3, 0, 0) + PDQ(0, 1, 1)),
         arima100011 = ARIMA(Temperature ~ pdq(1, 0, 0) + PDQ(0, 1, 1)),
-        arima003011 = ARIMA(Temperature ~ pdq(0, 0, 4) + PDQ(0, 1, 1)), 
+        arima004011 = ARIMA(Temperature ~ pdq(0, 0, 4) + PDQ(0, 1, 1)), 
         arima001011 = ARIMA(Temperature ~ pdq(0, 0, 1) + PDQ(0, 1, 1)), 
         auto = ARIMA(Temperature))
 
