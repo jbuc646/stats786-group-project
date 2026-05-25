@@ -474,6 +474,7 @@ $$s_t = s_{t-m} + \gamma \epsilon_t$$
 $$
 \alpha = 0.130333 \quad \beta = 0.0001008877  \quad \gamma = 0.0001002063 , \quad \phi = 0.9768198 \quad\sigma^2 = 0.7227
 $$
+:::
 ------------------------------------------------------------------------
 
 # ARIMA Models
@@ -900,7 +901,7 @@ Contributors: [Name(s) here]
 :::
 
 ```{r ljung-box}
-ets_lj <- ETS_final  %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 999) # ETS - dof & update model
+ets_lj <- ETS_final  %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 18) # ETS - dof & update model
 arima_lj <- ARIMA_fit %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 2) #ARIMA
 dyred_lj <- dynreg_final %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 11) #DyReg - dof 
 
