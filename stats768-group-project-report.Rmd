@@ -1088,12 +1088,35 @@ The following prompt was submitted to **Claude (Sonnet 4.5, claude.ai)** on 26 M
 
 ```{r llm-model-forecasts}
 # extend the other models to May 2026 and compare
+bind_rows(
+  ETS_final %>%
+    forecast(h = 13) %>%
+    tail(1) %>%
+    as_tibble() %>%
+    mutate(Model = "ETS"),
 
+  ARIMA_fit %>%
+    forecast(h = 13) %>%
+    tail(1) %>%
+    as_tibble() %>%
+    mutate(Model = "ARIMA"),
+
+  dynreg_final %>%
+    forecast(new_data = new_data(train_filled, 13)) %>%
+    tail(1) %>%
+    as_tibble() %>%
+    mutate(Model = "Dynamic")
+) %>%
+  select(Model, date, .mean)
 ```
 
 ::: discussion
-**Comparison and comments:** Compare the LLM's forecast to your three
-models' forecasts for May 2026. Comment on anything interesting.
+**Comparison and comments:** 
+The ETS, ARIMA and Dynamic Regression models produced very similar point forecasts for May 2026, ranging from 11.41°C to 11.59°C. The maximum difference between the statistical models was less than 0.2°C, suggesting strong agreement despite the different modelling approaches.
+
+In comparison, Claude produced a point forecast of 12.0°C, which was approximately 0.4–0.6°C higher than the statistical forecasts. Claude explained that its estimate was based on general climate knowledge and a small adjustment for long-term warming trends rather than a fitted time series model.
+
+An interesting finding is that the LLM forecast remained reasonably close to the statistical forecasts despite not having access to the underlying data. However, the statistical models are more defensible because they were fitted directly to the historical Nelson temperature series and therefore incorporated the observed trend and seasonal patterns. This highlights that LLMs can provide plausible baseline forecasts, but dedicated forecasting models remain more appropriate for quantitative time series prediction.
 :::
 
 ------------------------------------------------------------------------
