@@ -63,6 +63,7 @@ library(urca)
 library(imputeTS)
 library(patchwork)
 library(magrittr)
+library(janitor)
 ```
 
 ------------------------------------------------------------------------
@@ -228,26 +229,40 @@ in both the ARIMA and dynamic regression models.
 
 ```{r time-plot}
 # Time plot
-train_filled %>% autoplot(Temperature)
+train_filled %>% 
+  autoplot(Temperature) + 
+  theme_bw()
 ```
 
 ```{r subseries-plot}
-train_filled %>% gg_subseries()
+train_filled %>% 
+  gg_subseries() + 
+  labs(x = "Year") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90))
 ```
 
 ```{r}
 # Seasonality plot 
-train_filled %>% gg_season(Temperature)
+train_filled %>% 
+  gg_season(Temperature) + 
+  theme_bw()
 ```
 
 ```{r}
 # ACF plot
-train_filled %>% ACF(Temperature, lag_max=48) %>% autoplot()
+train_filled %>% 
+  ACF(Temperature, lag_max=48) %>% 
+  autoplot() + 
+  theme_bw()
 ```
 
 ```{r}
 # PACF plot
-train_filled %>% PACF(Temperature, lag.max=48) %>% autoplot()
+train_filled %>% 
+  PACF(Temperature, lag.max=48) %>% 
+  autoplot() +
+  theme_bw()
 ```
 
 ```{r}
@@ -255,7 +270,8 @@ train_filled %>% PACF(Temperature, lag.max=48) %>% autoplot()
 train_filled %>%
   model(STL(Temperature ~ trend(window=21))) %>%
   components() %>%
-  autoplot()
+  autoplot() +
+  theme_bw()
 ```
 
 ------------------------------------------------------------------------
@@ -270,13 +286,16 @@ Contributors: Xinyi Kong
 
 ::: discussion
 **Methodology:** 
+
 The STL decomposition and ACF plot together provide strong evidence of both a clear seasonal pattern and a long-term trend in the temperature data. Additionally, the time series displays strong, consistent seasonality with temperatures peaking in January (summer, \~17–18°C) and reaching a trough in July (winter, \~6–7°C), and the STL decomposition confirms the seasonality is additive. Apart from that, the trend component from the STL decomposition reveals a positive trend, rising from approximately 11°C in the early 1940s to around 14°C by the mid-2020s.
 
 As we discussed above, candidate ETS models were selected based on strong annual seasonality, a slowly evolving trend, and approximately constant variance over time. These features suggest that additive error and additive seasonal structures are appropriate for this data set. Therefore, the manually selected ETS models include: 
 
-\## ETS model equations
+### ETS model equations
 
-### ETS(AAA):
+  
+
+#### ETS(AAA): {-}
 
 **Observation equation:**
 $$y_t = \ell_{t-1} + b_{t-1} + s_{t-m} + \epsilon_t$$
@@ -289,7 +308,7 @@ $$b_t = b_{t-1} + \beta \epsilon_t$$
 
 **Seasonal equation:**
 $$s_t = s_{t-m} + \gamma \epsilon_t$$
-where:
+Where:
 
 - $\ell_t$ = level at time $t$
 - $b_t$ = trend (slope) at time $t$
@@ -300,8 +319,9 @@ where:
 - $\gamma \in [0,1]$ = smoothing parameter for the seasonal component
 - $\epsilon_t \sim \text{NID}(0, \sigma^2)$ = white noise error term
 
+------------------------------------------------------------------------  
 
-### ETS(ANA):
+#### ETS(ANA): {-}
 
 **Observation equation:**
 $$y_t = \ell_{t-1} + s_{t-m} + \epsilon_t$$
@@ -312,7 +332,7 @@ $$\ell_t = \ell_{t-1} + \alpha \epsilon_t$$
 **Seasonal equation:**
 $$s_t = s_{t-m} + \gamma \epsilon_t$$
 
-where:
+Where:
 
 - $\ell_t$ = level at time $t$
 - $s_t$ = seasonal component at time $t$
@@ -321,8 +341,9 @@ where:
 - $\gamma \in [0,1]$ = smoothing parameter for the seasonal component
 - $\epsilon_t \sim \text{NID}(0, \sigma^2)$ = white noise error term
 
-
-### ETS(AAdA):
+------------------------------------------------------------------------
+  
+#### ETS(AAdA): {-}
 
 **Observation equation:**
 $$y_t = \ell_{t-1} + \phi b_{t-1} + s_{t-m} + \epsilon_t$$
@@ -335,7 +356,7 @@ $$b_t = \phi b_{t-1} + \beta \epsilon_t$$
 **Seasonal equation:**
 $$s_t = s_{t-m} + \gamma \epsilon_t$$
 
-where:
+Where:
 
 - $\ell_t$ = level at time $t$
 - $b_t$ = trend (slope) at time $t$
@@ -347,9 +368,13 @@ where:
 - $\gamma \in [0,1]$ = smoothing parameter for the seasonal component
 - $\epsilon_t \sim \text{NID}(0, \sigma^2)$ = white noise error term
 
-Multiplicative models:
 
-### ETS(M,A,M):
+------------------------------------------------------------------------
+
+
+### Multiplicative models: {-}
+
+#### ETS(M,A,M): {-}
 
 **Observation equation:**
 $$y_t = (\ell_{t-1} + b_{t-1}) \cdot s_{t-m} \cdot (1 + \epsilon_t)$$
@@ -363,7 +388,7 @@ $$b_t = b_{t-1} + \beta(\ell_{t-1} + b_{t-1}) \cdot \epsilon_t$$
 **Seasonal equation:**
 $$s_t = s_{t-m} \cdot (1 + \gamma \epsilon_t)$$
 
-where:
+Where:
 
 - $\ell_t$ = level at time $t$
 - $b_t$ = trend (slope) at time $t$
@@ -374,9 +399,11 @@ where:
 - $\gamma \in [0,1]$ = smoothing parameter for the seasonal component
 - $\epsilon_t \sim \text{NID}(0, \sigma^2)$ = white noise error term
 
-### ETS(M,Ad,M):
+  
+------------------------------------------------------------------------
 
-markdown### ETS(M,Ad,M):
+#### ETS(M,Ad,M): {-}
+
 
 **Observation equation:**
 $$y_t = (\ell_{t-1} + \phi b_{t-1}) \cdot s_{t-m} \cdot (1 + \epsilon_t)$$
@@ -390,7 +417,7 @@ $$b_t = \phi b_{t-1} + \beta(\ell_{t-1} + \phi b_{t-1}) \cdot \epsilon_t$$
 **Seasonal equation:**
 $$s_t = s_{t-m} \cdot (1 + \gamma \epsilon_t)$$
 
-where:
+Where:
 
 - $\ell_t$ = level at time $t$
 - $b_t$ = trend (slope) at time $t$
@@ -402,9 +429,11 @@ where:
 - $\gamma \in [0,1]$ = smoothing parameter for the seasonal component
 - $\epsilon_t \sim \text{NID}(0, \sigma^2)$ = white noise error term
 
+------------------------------------------------------------------------
+
 Given these features, additive error and additive seasonal structures were considered the primary modelling choice. The initial shortlist focused on ETS models with additive seasonality, including AAA, ANA, AAdA.
 
-In addition, multiplicative specifications were included as benchmark models to assess whether a proportional error and seasonal structure could provide improved fit. These include: ETS(M, A, M) ETS(M, Ad, M). These methods can be used because our data is positive.
+In addition, multiplicative specifications were included as benchmark models to assess whether a proportional error and seasonal structure could provide improved fit. These include: ETS(M, A, M); ETS(M, Ad, M). These methods can be used because our data is positive.
 
 Besides, an automatic ETS model was also fitted using ETS(Temperature), which selects the optimal combination of error, trend, and seasonal components by minimising AICc over all possible ETS specifications.
 :::
@@ -440,6 +469,7 @@ Contributors: Xinyi Kong
 
 ::: discussion
 **Selected model:** 
+
 Based on AICc, the ETS(A,Ad,A) model is selected as the preferred model, achieving the lowest AICc among all candidate models. This result is also consistent with the time series diagnostics, as the damped trend specification appropriately reflects the gradually increasing but slowly evolving trend identified in the STL decomposition, while the additive seasonal component captures the stable annual cycle. The damped trend is preferred over the full additive trend (AAA) as it avoids over-forecasting by allowing the trend to flatten over the forecast horizon.
 
 :::
@@ -489,6 +519,8 @@ Contributors: Bea Cooke
 **Transformations:** 
 
 The time plot shows no visual evidence of multiplicative seasonality, as seasonal fluctuations appear approximately constant and do not appear to depend on the level of the series. Additionally, the selected Box-Cox parameter, $\lambda = 0.92$, is sufficiently close to $1$. Given no visual evidence and $\lambda \approx 1$, no transformation is used.
+
+------------------------------------------------------------------------
 
 **Differencing:** 
 
@@ -563,12 +595,14 @@ plt_acf <- train_filled %>%
               ACF(Temperature, lag_max=120) %>% 
                   autoplot() + 
                   scale_x_continuous(breaks = seq(0, 120, by = 12)) + 
+                  theme_bw() +
                   theme(axis.title.x = element_blank())
 plt_acf_diff <- train_filled %>% 
                     ACF(diff_temp, lag_max=120) %>%
                         autoplot() + 
                         scale_x_continuous(breaks = seq(0, 120, by = 12)) +
-                        ylab("acf (Differenced)")
+                        ylab("acf (Differenced)") +
+                        theme_bw()
 
 plt_acf + plt_acf_diff + plot_layout(ncol = 1)
 
@@ -577,17 +611,19 @@ plt_pacf <- train_filled %>%
               PACF(Temperature, lag_max=120) %>% 
                   autoplot() + 
                   scale_x_continuous(breaks = seq(0, 120, by = 12)) + 
+                  theme_bw() +
                   theme(axis.title.x = element_blank())
 plt_pacf_diff <- train_filled %>% 
                     PACF(diff_temp, lag_max=120) %>% 
                           autoplot() + 
                           scale_x_continuous(breaks = seq(0, 120, by = 12)) +
-                          ylab("pacf (Differenced)")
+                          ylab("pacf (Differenced)") + 
+                          theme_bw()
 
 plt_pacf + plt_pacf_diff + plot_layout(ncol = 1)
 
 # all together on fewer lags to see significant spikes 
-train_filled %>% gg_tsdisplay(diff_temp, plot_type = "partial", lag = 24)
+train_filled %>% gg_tsdisplay(diff_temp, plot_type = "partial", lag = 24) 
 ```
 
 
@@ -608,7 +644,7 @@ ARIMA_fits <- train_filled %>%
 # find best on AICc
 report(ARIMA_fits) %>% arrange(AICc) %>% select(.model:BIC)
 
-accuracy(ARIMA_fits) %>%  select(.model, RMSE, MAE, MAPE, MASE)
+accuracy(ARIMA_fits) %>%  select(.model, RMSE, MAE, MAPE, MASE) %>% adorn_rounding(digits = 4)
 
 ARIMA_fits %>% select(arima100011) %>% report() #report best
 ```
@@ -738,7 +774,7 @@ dynreg_fit <- train_filled %>%
 
 ```{r dynreg-outlier-check}
 # Visual inspection for outliers or structural breaks before committing to no intervention variables
-train_filled %>% autoplot(Temperature)
+train_filled %>% autoplot(Temperature) + theme_bw()
 
 # Flag minimum and maximum observations as candidate spike dates
 train_filled %>%
@@ -755,7 +791,7 @@ variables were added.
 ```{r dynreg-comparison}
 # Compare all K models by information criteria and accuracy
 glance(dynreg_fit) %>% arrange(AICc) %>% select(.model, AIC, AICc, BIC)
-accuracy(dynreg_fit) %>% select(.model, RMSE, MAE, MASE)
+accuracy(dynreg_fit) %>% select(.model, RMSE, MAE, MASE) %>% adorn_rounding(digits = 4)
 ```
 
 ::: discussion
@@ -908,8 +944,7 @@ arima_lj <- ARIMA_fit %>% augment() %>% features(.innov, ljung_box, lag = 24, do
 dyred_lj <- dynreg_final %>% augment() %>% features(.innov, ljung_box, lag = 24, dof = 11) #DyReg - dof 
 
 
-bind_rows(ets_lj, arima_lj, dyred_lj) #print all together
-
+bind_rows(ets_lj, arima_lj, dyred_lj) %>% janitor::adorn_rounding(digits = 3) #print all together
 ```
 
 ------------------------------------------------------------------------
@@ -951,7 +986,8 @@ plt_ets_fc + plt_ets_fc_test + plot_layout(ncol = 1)
 ETS_fc_final %>%
   hilo(level = 95) %>%
   select(date, .mean, `95%`) %>% 
-  unpack_hilo(cols = `95%`)
+  unpack_hilo(cols = `95%`) %>% 
+  adorn_rounding(digits = 3)
 ```
 
 ```{r forecasts-arima}
@@ -967,7 +1003,8 @@ plt_arima_fc + plt_arima_fc_test + plot_layout(ncol = 1)
 ARIMA_fc %>%
   hilo(level = 95) %>%
   select(date, .mean, `95%`) %>% 
-  unpack_hilo(cols = `95%`)
+  unpack_hilo(cols = `95%`) %>% 
+  adorn_rounding(digits = 3)
 ```
 
 ```{r forecasts-dynreg}
@@ -985,11 +1022,12 @@ plt_dyreg_fc_test <- dynreg_fc %>% autoplot(test)
 plt_dyreg_fc + plt_dyreg_fc_test + plot_layout(ncol = 1)
 
 
-# Print point forecasts and 95% intervals - unpack hilo object so it displays in the html
+# Print point forecasts and 95% intervals 
 dynreg_fc %>%
   hilo(level = 95) %>%
   select(date, .mean, `95%`) %>% 
-  unpack_hilo(cols = `95%`)
+  unpack_hilo(cols = `95%`) %>% 
+  adorn_rounding(digits = 3)
 ```
 
 
@@ -1006,7 +1044,7 @@ ETS <- accuracy(ETS_fc_final, nelson)
 AR <- accuracy(ARIMA_fc, nelson)
 DR <- accuracy(dynreg_fc, nelson) 
 
-bind_rows(ETS, AR, DR) %>% select(.model, RMSE, MAE, MAPE, MASE)
+bind_rows(ETS, AR, DR) %>% select(.model, RMSE, MAE, MAPE, MASE) %>% adorn_rounding(digits = 4)
 ```
 
 ------------------------------------------------------------------------
