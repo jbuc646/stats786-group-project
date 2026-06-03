@@ -915,7 +915,13 @@ report(dynreg_final)
 ## Residual Diagnostics
 
 ::: contributor
-Contributors: [Name(s) here]
+Contributors: Bea Cooke
+:::
+
+::: discussion
+From the residual diagnostics below, the residuals for all three selected models are approximately centered around 0 and have roughly constant variance. There is possibly a small upward cycle for both the selected ARIMA and Dynamic regression model which peaks slightly before Jan 2000, however visual evidence for this is weak. The residuals for all three models appear approximately normal and are approximately symmetric about 0.  
+
+All three selected models have remaining correlation above the significance threshold, with all models having a significant ACF value at point, lag 26, suggesting that there is evidence against the independence hypothesis, Ljung-Box tests will be required to further access this.  The ETS model has very large ACF at lag 1, smaller but still significant ACF at lag 26 and marginally significant ACF values at lags 7, 15 and 20. The ARIMA model has significant ACF values at lags 3$*$, 4, 10, 13$*$, 28, where $*$ denotes where values are only marginally above the significance threshold. The selected dynamic regression model has only one significant ACF value at lag 26. 
 :::
 
 ```{r residuals-ets}
@@ -935,7 +941,11 @@ dynreg_final %>%  gg_tsresiduals()
 ## Ljung-Box Tests
 
 ::: contributor
-Contributors: [Name(s) here]
+Contributors: Bea Cooke
+:::
+
+::: discussion
+Significant p-values we observed in the Ljung-Box tests for both the selected ETS (0.000) and ARIMA (0.001) models meaning we should likely reject the independence assumption, however the observed p-value for the selected dynamic regression model was sufficiently large (0.185) to support independence. 
 :::
 
 ```{r ljung-box}
@@ -952,14 +962,13 @@ bind_rows(ets_lj, arima_lj, dyred_lj) %>% janitor::adorn_rounding(digits = 3) #p
 ## Discussion
 
 ::: contributor
-Contributors: [Name(s) here]
+Contributors: Bea Cooke
 :::
 
 ::: discussion
-**Do you trust these models for forecasting?** Discuss the residual
-plots and Ljung-Box results for each model. Comment on whether the
-assumptions of white noise residuals appear to be met and what
-implications this has for forecasting reliability.
+For the selected dynamic regression model the residual diagnostic plots and Ljung-Box test provided no evidence that the standard assumptions were violated, and hence this model can be trusted for forecasting. 
+
+For the selected ETS and ARIMA models both the ACF plot of the residuals and the Ljung-Box tests results supported the correlated residuals and violation of the independence assumption. Since the independence assumption does not hold there are doubts that these models will provide reliable forecasts and should not be trusted, as our variance estimates used to compute our forecast errors will not be accurate.  
 :::
 
 ------------------------------------------------------------------------
@@ -969,7 +978,7 @@ implications this has for forecasting reliability.
 ## Forecasts (h = 12)
 
 ::: contributor
-Contributors: [Name(s) here]
+Contributors: Bea Cooke
 :::
 
 ```{r forecasts-ets}
@@ -1036,7 +1045,7 @@ dynreg_fc %>%
 ## Forecast Error vs Test Set
 
 ::: contributor
-Contributors: [Name(s) here]
+Contributors: Bea Cooke
 :::
 
 ```{r forecast-accuracy}
@@ -1052,13 +1061,13 @@ bind_rows(ETS, AR, DR) %>% select(.model, RMSE, MAE, MAPE, MASE) %>% adorn_round
 ## Discussion
 
 ::: contributor
-Contributors: [Name(s) here]
+Contributors: Bea Cooke 
 :::
 
 ::: discussion
-**How well did your models perform?** Compare the forecast accuracy
-metrics (e.g. RMSE, MAE, MAPE) across your three models. Discuss which
-performed best and offer an explanation for why.
+Comparing the forecast results for all three models to the test set, the observed values fell withing the 95% confidence bounds for all three selected models. For all accuracy reported metrics (RMSE, MAE, MAPE and MASE) the ARIMA model preformed the best (RMSE: 0.5781, MAE: 0.4667, MAPE: 3.8430, MASE: 0.4760), followed by the dynamic regression model (RMSE: 0.6988, MAE: 0.5857, MAPE: 4.8259, MASE: 0.5974) with the ETS model preforming the worst (RMSE: 0.7566, MAE: 0.6456, MAPE: 5.2585, MASE: 0.6585).
+
+Overall the point forecasts for all three models were relatively similar, with all three model predicting minimum values in July 2025 and maximum values in Jan 2026 (ARIMA/ dynamic regression) and Feb 2026 (ETS). This corresponds to initial observations in the sub-series plot where minimal values were also observed in July and maximum values in January/February. However, the observed minimum temperature occurred in August 2026, comparing this to the sub series plot we can see recent July values being approximately equal to August, none of the models captured the observed July warming particularly well, possibly because the observed trend for July apprears non-linear with rapid growth occurring relatively recently as well as fewer observed fluctuations in temperature as the July sub-series level increased. This trend is relatively different than what was observed in the sub-series plots for the other months. A model which accounts for the differing trend in July may produce more accurate forecasts. 
 :::
 
 ------------------------------------------------------------------------
@@ -1157,20 +1166,7 @@ In comparison, Claude produced a point forecast of 12.0°C, which was approximat
 An interesting finding is that the LLM forecast remained reasonably close to the statistical forecasts despite not having access to the underlying data. However, the statistical models are more defensible because they were fitted directly to the historical Nelson temperature series and therefore incorporated the observed trend and seasonal patterns. This highlights that LLMs can provide plausible baseline forecasts, but dedicated forecasting models remain more appropriate for quantitative time series prediction.
 :::
 
-------------------------------------------------------------------------
 
-
-# Summary
-
-::: contributor
-Contributors: [Name(s) here]
-:::
-
-::: discussion
-**Brief overall summary:** Summarise the key findings of your analysis —
-which model performed best, what the data showed, and any limitations or
-caveats worth noting.
-:::
 
 ------------------------------------------------------------------------
 
